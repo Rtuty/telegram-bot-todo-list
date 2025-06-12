@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: todobot_postgres
+    environment:
+      POSTGRES_DB: todolist
+      POSTGRES_USER: todobot
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U todobot -d todolist"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  todobot:
+    build: .
+    container_name: todobot_app
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}
+      - BOT_DEBUG=${BOT_DEBUG:-false}
+      - BOT_TIMEOUT=${BOT_TIMEOUT:-60s}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=todobot
+      - DB_PASSWORD=password
+      - DB_NAME=todolist
+      - DB_SSLMODE=disable
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-password123}
+      - AUTH_SESSION_TIMEOUT=${AUTH_SESSION_TIMEOUT:-24h}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./logs:/root/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Опциональный pgAdmin для управления базой данных
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: todobot_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@todobot.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    profiles:
+      - admin
+
+volumes:
+  postgres_data:
+    driver: local 
