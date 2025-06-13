@@ -13,76 +13,6 @@ import (
 	"todolist/internal/domain"
 )
 
-// handleCallbackQuery обрабатывает callback запросы от inline клавиатур
-func (b *Bot) handleCallbackQuery(ctx context.Context, query *tgbotapi.CallbackQuery) {
-	chatID := query.Message.Chat.ID
-	userID := query.From.ID
-	data := query.Data
-
-	// Подтверждаем получение callback
-	callback := tgbotapi.NewCallback(query.ID, "")
-	b.api.Request(callback)
-
-	// Получаем пользователя
-	user, err := b.getUserFromTelegram(ctx, userID)
-	if err != nil {
-		b.sendMessage(chatID, "❌ Ошибка авторизации")
-		return
-	}
-
-	if strings.HasPrefix(data, "complete_") {
-		taskIDStr := strings.TrimPrefix(data, "complete_")
-		taskID, err := strconv.Atoi(taskIDStr)
-		if err != nil {
-			b.sendMessage(chatID, "❌ Неверный ID задачи")
-			return
-		}
-
-		task, err := b.taskService.CompleteTask(ctx, taskID, user.ID)
-		if err != nil {
-			b.sendMessage(chatID, fmt.Sprintf("❌ Ошибка: %s", err.Error()))
-			return
-		}
-
-		b.sendMessage(chatID, fmt.Sprintf("✅ Задача [%d] выполнена!", task.ID))
-
-	} else if strings.HasPrefix(data, "show_") {
-		taskIDStr := strings.TrimPrefix(data, "show_")
-		taskID, err := strconv.Atoi(taskIDStr)
-		if err != nil {
-			b.sendMessage(chatID, "❌ Неверный ID задачи")
-			return
-		}
-
-		task, err := b.taskService.GetTaskByID(ctx, taskID, user.ID)
-		if err != nil {
-			b.sendMessage(chatID, fmt.Sprintf("❌ Ошибка: %s", err.Error()))
-			return
-		}
-
-		b.sendMessage(chatID, b.taskService.FormatTask(task))
-
-	} else if strings.HasPrefix(data, "category_") {
-		category := strings.TrimPrefix(data, "category_")
-		if state, exists := b.userStates[userID]; exists && state.Action == "add_note" && state.Step == 3 {
-			state.NoteData["category"] = category
-			state.Step = 4
-			b.sendMessage(chatID, "4️⃣ Введите теги через запятую (или отправьте \"-\" чтобы пропустить):")
-		}
-
-	} else if strings.HasPrefix(data, "priority_") {
-		priority := strings.TrimPrefix(data, "priority_")
-		if state, exists := b.userStates[userID]; exists && state.Action == "add_task" && state.Step == 3 {
-			state.TaskData["priority"] = priority
-			b.handleAddTaskState(ctx, &tgbotapi.Message{
-				Chat: &tgbotapi.Chat{ID: chatID},
-				From: &tgbotapi.User{ID: userID},
-				Text: priority,
-			}, user, state)
-		}
-	}
-}
-
 // handleUserState обрабатывает состояния пользователя для многошаговых операций
 func (b *Bot) handleUserState(ctx context.Context, message *tgbotapi.Message, state *UserState) {
 	chatID := message.Chat.ID
@@ -373,20 +303,6 @@ func (b *Bot) handleSetNotificationCommand(ctx context.Context, message *tgbotap
 		task.ID, task.Title, notifyTime.Format("02.01.2006 15:04")))
 }
 
-// handleLogoutCommand обрабатывает команду /logout
-func (b *Bot) handleLogoutCommand(ctx context.Context, chatID, userID int64) {
-	err := b.authService.Logout(ctx, userID)
-	if err != nil {
-		b.sendMessage(chatID, fmt.Sprintf("❌ Ошибка выхода: %s", err.Error()))
-		return
-	}
-
-	// Очищаем состояние пользователя
-	delete(b.userStates, userID)
-
-	b.sendMessage(chatID, "👋 Вы вышли из системы. Для повторного входа используйте /start пароль")
-}
-
 // parseTime парсит время из различных форматов
 func (b *Bot) parseTime(timeStr string) (time.Time, error) {
 	now := time.Now()
@@ -457,15 +373,7 @@ func (b *Bot) handleAddTaskState(ctx context.Context, message *tgbotapi.Message,
 		state.TaskData["description"] = description
 		state.Step = 3
 
-		keyboard := tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				{
-					tgbotapi.InlineKeyboardButton{Text: "🔴 Высокий", CallbackData: &[]string{"priority_high"}[0]},
-					tgbotapi.InlineKeyboardButton{Text: "🟡 Средний", CallbackData: &[]string{"priority_medium"}[0]},
-					tgbotapi.InlineKeyboardButton{Text: "🟢 Низкий", CallbackData: &[]string{"priority_low"}[0]},
-				},
-			},
-		}
+		keyboard := getPriorityKeyboard()
 		b.sendMessageWithKeyboard(chatID, "3️⃣ Выберите приоритет задачи:", keyboard)
 
 	default:
@@ -546,22 +454,7 @@ func (b *Bot) handleAddNoteState(ctx context.Context, message *tgbotapi.Message,
 		state.NoteData["content"] = content
 		state.Step = 3
 
-		keyboard := tgbotapi.InlineKeyboardMarkup{
-			InlineKeyboard: [][]tgbotapi.InlineKeyboardButton{
-				{
-					tgbotapi.InlineKeyboardButton{Text: "🗂️ Общее", CallbackData: &[]string{"category_general"}[0]},
-					tgbotapi.InlineKeyboardButton{Text: "💼 Работа", CallbackData: &[]string{"category_work"}[0]},
-				},
-				{
-					tgbotapi.InlineKeyboardButton{Text: "📚 Учеба", CallbackData: &[]string{"category_study"}[0]},
-					tgbotapi.InlineKeyboardButton{Text: "👤 Личное", CallbackData: &[]string{"category_personal"}[0]},
-				},
-				{
-					tgbotapi.InlineKeyboardButton{Text: "🔗 Ресурсы", CallbackData: &[]string{"category_resources"}[0]},
-					tgbotapi.InlineKeyboardButton{Text: "💡 Идеи", CallbackData: &[]string{"category_ideas"}[0]},
-				},
-			},
-		}
+		keyboard := getCategoryKeyboard()
 		b.sendMessageWithKeyboard(chatID, "3️⃣ Выберите категорию заметки:", keyboard)
 
 	case 3: // Теги

@@ -2,14 +2,12 @@ package telegram
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"go.uber.org/zap"
 
 	"todolist/config"
-	"todolist/internal/domain"
 	"todolist/internal/usecase"
 )
 
@@ -88,7 +86,10 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 
 	if update.Message != nil {
 		b.handleMessage(ctx, update.Message)
-	} else if update.CallbackQuery != nil {
+		return
+	}
+
+	if update.CallbackQuery != nil {
 		b.handleCallbackQuery(ctx, update.CallbackQuery)
 	}
 }
@@ -122,14 +123,17 @@ func (b *Bot) handleMessage(ctx context.Context, message *tgbotapi.Message) {
 	// Обработка команд
 	if message.IsCommand() {
 		b.handleCommand(ctx, message)
-	} else if message.Document != nil || len(message.Photo) > 0 || message.Video != nil ||
+		return
+	}
+
+	if message.Document != nil || len(message.Photo) > 0 || message.Video != nil ||
 		message.Audio != nil || message.Voice != nil {
 		// Если это файл, создаем заметку из файла
 		b.handleCreateNoteFromFile(ctx, message)
-	} else {
-		// Если это не команда, создаем задачу из текста
-		b.handleCreateTaskFromText(ctx, message)
+		return
 	}
+	// Если это не команда, создаем задачу из текста
+	b.handleCreateTaskFromText(ctx, message)
 }
 
 // handleCommand обрабатывает команды бота
@@ -181,47 +185,6 @@ func (b *Bot) handleCommand(ctx context.Context, message *tgbotapi.Message) {
 	default:
 		b.sendMessage(chatID, "❓ Неизвестная команда. Используйте /help для просмотра доступных команд.")
 	}
-}
-
-// handleStartCommand обрабатывает команду /start
-func (b *Bot) handleStartCommand(ctx context.Context, message *tgbotapi.Message) {
-	chatID := message.Chat.ID
-	userID := message.From.ID
-
-	// Проверяем, авторизован ли пользователь
-	if _, err := b.authService.IsAuthenticated(ctx, userID); err == nil {
-		b.sendMessage(chatID, "👋 Вы уже авторизованы! Используйте /help для просмотра команд.")
-		return
-	}
-
-	args := strings.Fields(message.Text)
-	if len(args) < 2 {
-		b.sendMessage(chatID, "🔐 Для авторизации введите: /start ваш_пароль")
-		return
-	}
-
-	password := strings.Join(args[1:], " ")
-	username := ""
-	if message.From.UserName != "" {
-		username = "@" + message.From.UserName
-	}
-
-	user, err := b.authService.Login(ctx, userID, username,
-		message.From.FirstName, message.From.LastName, password)
-	if err != nil {
-		b.sendMessage(chatID, fmt.Sprintf("❌ Ошибка авторизации: %s", err.Error()))
-		return
-	}
-
-	welcomeMsg := fmt.Sprintf("🎉 Добро пожаловать, %s!\n\n", user.FirstName)
-	welcomeMsg += "Вы успешно авторизованы в Todo Bot.\n\n"
-	welcomeMsg += "📝 Основные команды:\n"
-	welcomeMsg += "• Отправьте любой текст для создания задачи\n"
-	welcomeMsg += "• /tasks - список всех задач\n"
-	welcomeMsg += "• /help - справка по командам\n\n"
-	welcomeMsg += "Начните управлять своими задачами уже сейчас! 🚀"
-
-	b.sendMessage(chatID, welcomeMsg)
 }
 
 // handleHelpCommand обрабатывает команду /help
@@ -289,9 +252,4 @@ func (b *Bot) sendMessageWithKeyboard(chatID int64, text string, keyboard tgbota
 	if _, err := b.api.Send(msg); err != nil {
 		b.logger.Error("failed to send message with keyboard", zap.Error(err))
 	}
-}
-
-// getUserFromTelegram получает пользователя из контекста телеграма
-func (b *Bot) getUserFromTelegram(ctx context.Context, telegramUserID int64) (*domain.User, error) {
-	return b.authService.IsAuthenticated(ctx, telegramUserID)
 }
