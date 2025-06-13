@@ -38,28 +38,46 @@ type AuthConfig struct {
 	SessionTimeout time.Duration
 }
 
+const (
+	_botTokenKey   = "BOT_TOKEN"
+	_botDebugKey   = "BOT_DEBUG"
+	_botTimeoutKey = "BOT_TIMEOUT"
+
+	_dbHostKey     = "DB_HOST"
+	_dbPortKey     = "DB_PORT"
+	_dbUserKey     = "DB_USER"
+	_dbPasswordKey = "DB_PASSWORD"
+	_dbNameKey     = "DB_NAME"
+	_dbSSLModeKey  = "DB_SSLMODE"
+
+	_authPasswordKey    = "AUTH_PASSWORD"
+	_authSessionTimeout = "AUTH_SESSION_TIMEOUT"
+)
+
 // Load загружает конфигурацию из переменных окружения
 func Load() (*Config, error) {
 	// Загружаем .env файл если он существует
-	_ = godotenv.Load()
+	if err := godotenv.Load(); err != nil {
+		return nil, err
+	}
 
 	cfg := &Config{
 		Bot: BotConfig{
-			Token:   getEnv("BOT_TOKEN", ""),
-			Debug:   getEnvBool("BOT_DEBUG", false),
-			Timeout: getEnvDuration("BOT_TIMEOUT", 60*time.Second),
+			Token:   getEnv(_botTokenKey, ""),
+			Debug:   getEnvBool(_botDebugKey, false),
+			Timeout: getEnvDuration(_botTimeoutKey, 60*time.Second),
 		},
 		Database: DatabaseConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     getEnvInt("DB_PORT", 5432),
-			User:     getEnv("DB_USER", "todobot"),
-			Password: getEnv("DB_PASSWORD", "password"),
-			Database: getEnv("DB_NAME", "todolist"),
-			SSLMode:  getEnv("DB_SSLMODE", "disable"),
+			Host:     getEnv(_dbHostKey, "localhost"),
+			Port:     getEnvInt(_dbPortKey, 5432),
+			User:     getEnv(_dbUserKey, "todobot"),
+			Password: getEnv(_dbPasswordKey, "password"),
+			Database: getEnv(_dbNameKey, "todolist"),
+			SSLMode:  getEnv(_dbSSLModeKey, "disable"),
 		},
 		Auth: AuthConfig{
-			Password:       getEnv("AUTH_PASSWORD", "password123"),
-			SessionTimeout: getEnvDuration("AUTH_SESSION_TIMEOUT", 24*time.Hour),
+			Password:       getEnv(_authPasswordKey, "password123"),
+			SessionTimeout: getEnvDuration(_authSessionTimeout, 24*time.Hour),
 		},
 	}
 

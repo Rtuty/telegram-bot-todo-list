@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -40,7 +41,7 @@ func main() {
 	defer db.Close()
 
 	// Создание таблиц
-	if err := db.CreateTables(); err != nil {
+	if err = db.CreateTables(); err != nil {
 		logger.Fatal("failed to create tables", zap.Error(err))
 	}
 
@@ -87,8 +88,8 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := telegramHandler.Start(ctx); err != nil && err != context.Canceled {
-			logger.Error("telegram bot error", zap.Error(err))
+		if thErr := telegramHandler.Start(ctx); thErr != nil && !errors.Is(thErr, context.Canceled) {
+			logger.Error("telegram bot error", zap.Error(thErr))
 		}
 	}()
 
@@ -96,8 +97,8 @@ func main() {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := cronScheduler.Start(ctx); err != nil && err != context.Canceled {
-			logger.Error("scheduler error", zap.Error(err))
+		if crErr := cronScheduler.Start(ctx); crErr != nil && !errors.Is(crErr, context.Canceled) {
+			logger.Error("scheduler error", zap.Error(crErr))
 		}
 	}()
 
