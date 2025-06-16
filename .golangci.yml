@@ -1,0 +1,232 @@
+linters:
+  enable:
+    - gofmt
+    - golint
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - ineffassign
+    - unused
+    - misspell
+    - gosec
+    - goconst
+    - gocyclo
+    - dupl
+    - goimports
+    - revive
+    - stylecheck
+    - gocritic
+    - prealloc
+    - unconvert
+    - whitespace
+    - wsl
+    - gochecknoinits
+    - gochecknoglobals
+    - gocognit
+    - gomnd
+    - gosec
+    - interfacer
+    - lll
+    - maligned
+    - scopelint
+    - unparam
+    - varcheck
+    - deadcode
+    - structcheck
+    - varcheck
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - dogsled
+    - dupl
+    - errname
+    - errorlint
+    - exhaustive
+    - exportloopref
+    - forbidigo
+    - forcetypeassert
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocyclo
+    - godot
+    - godox
+    - goerr113
+    - goheader
+    - goimports
+    - gomnd
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - ifshort
+    - importas
+    - ineffassign
+    - interfacer
+    - lll
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - paralleltest
+    - prealloc
+    - predeclared
+    - promlinter
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - staticcheck
+    - structcheck
+    - stylecheck
+    - tagliatelle
+    - tenv
+    - testpackage
+    - thelper
+    - tparallel
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - varcheck
+    - wastedassign
+    - whitespace
+    - wrapcheck
+    - wsl
+
+linters-settings:
+  govet:
+    check-shadowing: true
+  gocyclo:
+    min-complexity: 15
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+  misspell:
+    locale: US
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+  gosec:
+    excludes:
+      - G104 # Unhandled errors
+      - G107 # URL provided to HTTP request as taint input
+      - G201 # SQL query construction using format string
+      - G202 # SQL query construction using string concatenation
+      - G204 # Subprocess launched with variable
+      - G301 # Poor file permissions used when creating a directory
+      - G302 # Poor file permissions used with chmod
+      - G304 # File path provided as taint input
+      - G305 # File traversal when extracting zip/tar archive
+      - G306 # Poor file permissions used when writing to a file
+      - G307 # Deferring a method which returns an error
+      - G401 # Detect the usage of DES, RC4, MD5 or SHA1
+      - G402 # Look for bad TLS connection settings
+      - G403 # Ensure minimum RSA key length of 2048 bits
+      - G404 # Use of weak random number generator (math/rand instead of crypto/rand)
+      - G501 # Import blacklist: crypto/md5
+      - G502 # Import blacklist: crypto/des
+      - G503 # Import blacklist: crypto/rc4
+      - G504 # Import blacklist: net/http/cgi
+      - G505 # Import blacklist: crypto/sha1
+      - G601 # Implicit memory aliasing in for loop
+
+run:
+  deadline: 5m
+  skip-dirs:
+    - vendor
+    - third_party
+    - testdata
+  skip-files:
+    - ".*_test.go$"
+    - ".*_mock.go$"
+    - ".*_generated.go$"
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - dupl
+        - gocyclo
+        - gomnd
+        - interfacer
+        - lll
+        - maligned
+        - scopelint
+        - unparam
+        - varcheck
+        - gochecknoinits
+        - gochecknoglobals
+        - gocognit
+        - goconst
+        - gocyclo
+        - godot
+        - godox
+        - goerr113
+        - goheader
+        - goimports
+        - gomnd
+        - goprintffuncname
+        - gosec
+        - gosimple
+        - govet
+        - ifshort
+        - importas
+        - ineffassign
+        - interfacer
+        - lll
+        - makezero
+        - misspell
+        - nakedret
+        - nestif
+        - nilerr
+        - nilnil
+        - noctx
+        - nolintlint
+        - paralleltest
+        - prealloc
+        - predeclared
+        - promlinter
+        - revive
+        - rowserrcheck
+        - sqlclosecheck
+        - staticcheck
+        - structcheck
+        - stylecheck
+        - tagliatelle
+        - tenv
+        - testpackage
+        - thelper
+        - tparallel
+        - typecheck
+        - unconvert
+        - unparam
+        - unused
+        - varcheck
+        - wastedassign
+        - whitespace
+        - wrapcheck
+        - wsl
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: false
+
+severity:
+  default-severity: error
+  case-sensitive: false 
