@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"todolist/internal/domain"
+	"todolist/internal/metrics"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -28,7 +30,11 @@ func NewTaskService(taskRepository domain.TaskRepository, logger *zap.Logger) *T
 
 // CreateTask создает новую задачу
 func (s *TaskService) CreateTask(ctx context.Context, userID int64, title, description string, priority domain.TaskPriority) (*domain.Task, error) {
+	timer := prometheus.NewTimer(metrics.RequestDuration.WithLabelValues("create_task", "POST"))
+	defer timer.ObserveDuration()
+
 	if strings.TrimSpace(title) == "" {
+		metrics.ErrorsTotal.WithLabelValues("empty_title").Inc()
 		return nil, fmt.Errorf("название задачи не может быть пустым")
 	}
 
@@ -43,10 +49,13 @@ func (s *TaskService) CreateTask(ctx context.Context, userID int64, title, descr
 	}
 
 	if err := s.taskRepository.Create(ctx, task); err != nil {
+		metrics.ErrorsTotal.WithLabelValues("create_task_db_error").Inc()
 		s.logger.Error("failed to create task", zap.Error(err))
 		return nil, fmt.Errorf("ошибка создания задачи")
 	}
 
+	metrics.TasksCreated.Inc()
+	metrics.TasksTotal.WithLabelValues("pending").Inc()
 	s.logger.Info("task created", zap.Int("task_id", task.ID), zap.Int64("user_id", userID))
 	return task, nil
 }
@@ -90,42 +99,58 @@ func (s *TaskService) GetTaskByID(ctx context.Context, taskID int, userID int64)
 
 // CompleteTask помечает задачу как выполненную
 func (s *TaskService) CompleteTask(ctx context.Context, taskID int, userID int64) (*domain.Task, error) {
+	timer := prometheus.NewTimer(metrics.RequestDuration.WithLabelValues("complete_task", "POST"))
+	defer timer.ObserveDuration()
+
 	task, err := s.GetTaskByID(ctx, taskID, userID)
 	if err != nil {
+		metrics.ErrorsTotal.WithLabelValues("complete_task_not_found").Inc()
 		return nil, err
 	}
 
 	if task.IsCompleted() {
+		metrics.ErrorsTotal.WithLabelValues("task_already_completed").Inc()
 		return nil, fmt.Errorf("задача уже выполнена")
 	}
 
 	task.Complete()
 
 	if err := s.taskRepository.Update(ctx, task); err != nil {
+		metrics.ErrorsTotal.WithLabelValues("complete_task_db_error").Inc()
 		s.logger.Error("failed to complete task", zap.Error(err))
 		return nil, fmt.Errorf("ошибка завершения задачи")
 	}
 
+	metrics.TasksCompleted.Inc()
+	metrics.TasksTotal.WithLabelValues("pending").Dec()
+	metrics.TasksTotal.WithLabelValues("completed").Inc()
 	s.logger.Info("task completed", zap.Int("task_id", taskID), zap.Int64("user_id", userID))
 	return task, nil
 }
 
 // DeleteTask удаляет задачу
 func (s *TaskService) DeleteTask(ctx context.Context, taskID int, userID int64) error {
+	timer := prometheus.NewTimer(metrics.RequestDuration.WithLabelValues("delete_task", "DELETE"))
+	defer timer.ObserveDuration()
+
 	task, err := s.GetTaskByID(ctx, taskID, userID)
 	if err != nil {
+		metrics.ErrorsTotal.WithLabelValues("delete_task_not_found").Inc()
 		return err
 	}
 
 	if task.IsDeleted() {
+		metrics.ErrorsTotal.WithLabelValues("task_already_deleted").Inc()
 		return fmt.Errorf("задача уже удалена")
 	}
 
 	if err := s.taskRepository.Delete(ctx, taskID); err != nil {
+		metrics.ErrorsTotal.WithLabelValues("delete_task_db_error").Inc()
 		s.logger.Error("failed to delete task", zap.Error(err))
 		return fmt.Errorf("ошибка удаления задачи")
 	}
 
+	metrics.TasksTotal.WithLabelValues(task.Status.String()).Dec()
 	s.logger.Info("task deleted", zap.Int("task_id", taskID), zap.Int64("user_id", userID))
 	return nil
 }

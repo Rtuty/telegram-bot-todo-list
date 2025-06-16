@@ -8,7 +8,9 @@ import (
 
 	"todolist/config"
 	"todolist/internal/domain"
+	"todolist/internal/metrics"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 )
 
@@ -37,8 +39,12 @@ func NewAuthService(
 
 // Login выполняет авторизацию пользователя
 func (s *AuthService) Login(ctx context.Context, telegramID int64, username, firstName, lastName, password string) (*domain.User, error) {
+	timer := prometheus.NewTimer(metrics.RequestDuration.WithLabelValues("login", "POST"))
+	defer timer.ObserveDuration()
+
 	// Проверяем пароль
 	if password != s.config.Auth.Password {
+		metrics.ErrorsTotal.WithLabelValues("invalid_password").Inc()
 		s.logger.Warn("invalid password attempt", zap.Int64("telegram_id", telegramID))
 		return nil, fmt.Errorf("неверный пароль")
 	}
@@ -57,12 +63,15 @@ func (s *AuthService) Login(ctx context.Context, telegramID int64, username, fir
 			}
 
 			if err := s.userRepository.Create(ctx, user); err != nil {
+				metrics.ErrorsTotal.WithLabelValues("create_user_error").Inc()
 				s.logger.Error("failed to create user", zap.Error(err))
 				return nil, fmt.Errorf("не удалось создать пользователя")
 			}
 
+			metrics.UsersTotal.Inc()
 			s.logger.Info("new user created", zap.Int64("telegram_id", telegramID))
 		} else {
+			metrics.ErrorsTotal.WithLabelValues("get_user_error").Inc()
 			s.logger.Error("failed to get user", zap.Error(err))
 			return nil, fmt.Errorf("ошибка получения пользователя")
 		}
@@ -74,6 +83,7 @@ func (s *AuthService) Login(ctx context.Context, telegramID int64, username, fir
 		user.LastLoginAt = time.Now()
 
 		if err := s.userRepository.Update(ctx, user); err != nil {
+			metrics.ErrorsTotal.WithLabelValues("update_user_error").Inc()
 			s.logger.Error("failed to update user", zap.Error(err))
 		}
 	}
@@ -87,10 +97,12 @@ func (s *AuthService) Login(ctx context.Context, telegramID int64, username, fir
 	}
 
 	if err := s.sessionRepository.Create(ctx, session); err != nil {
+		metrics.ErrorsTotal.WithLabelValues("create_session_error").Inc()
 		s.logger.Error("failed to create session", zap.Error(err))
 		return nil, fmt.Errorf("ошибка создания сессии")
 	}
 
+	metrics.ActiveUsers.Inc()
 	s.logger.Info("user logged in", zap.Int64("user_id", user.ID), zap.Int64("telegram_id", telegramID))
 	return user, nil
 }
@@ -122,11 +134,16 @@ func (s *AuthService) IsAuthenticated(ctx context.Context, telegramID int64) (*d
 
 // Logout выполняет выход пользователя из системы
 func (s *AuthService) Logout(ctx context.Context, telegramID int64) error {
+	timer := prometheus.NewTimer(metrics.RequestDuration.WithLabelValues("logout", "POST"))
+	defer timer.ObserveDuration()
+
 	if err := s.sessionRepository.Delete(ctx, telegramID); err != nil {
+		metrics.ErrorsTotal.WithLabelValues("delete_session_error").Inc()
 		s.logger.Error("failed to delete session", zap.Error(err))
 		return fmt.Errorf("ошибка выхода из системы")
 	}
 
+	metrics.ActiveUsers.Dec()
 	s.logger.Info("user logged out", zap.Int64("telegram_id", telegramID))
 	return nil
 }

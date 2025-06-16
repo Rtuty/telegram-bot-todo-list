@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"todolist/config"
@@ -99,6 +101,25 @@ func main() {
 		defer wg.Done()
 		if crErr := cronScheduler.Start(ctx); crErr != nil && !errors.Is(crErr, context.Canceled) {
 			logger.Error("scheduler error", zap.Error(crErr))
+		}
+	}()
+
+	// Запуск HTTP-сервера для метрик
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		http.Handle("/metrics", promhttp.Handler())
+		metricsServer := &http.Server{
+			Addr: ":8080",
+		}
+		go func() {
+			if err := metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.Error("metrics server error", zap.Error(err))
+			}
+		}()
+		<-ctx.Done()
+		if err := metricsServer.Shutdown(context.Background()); err != nil {
+			logger.Error("metrics server shutdown error", zap.Error(err))
 		}
 	}()
 

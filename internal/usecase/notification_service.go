@@ -8,6 +8,9 @@ import (
 	"go.uber.org/zap"
 
 	"todolist/internal/domain"
+	"todolist/internal/metrics"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // NotificationService предоставляет методы для отправки уведомлений
@@ -28,24 +31,32 @@ func NewNotificationService(bot *tgbotapi.BotAPI, taskService *TaskService, logg
 
 // SendTaskNotifications отправляет уведомления о задачах
 func (s *NotificationService) SendTaskNotifications(ctx context.Context) error {
+	timer := prometheus.NewTimer(metrics.RequestDuration.WithLabelValues("send_notifications", "POST"))
+	defer timer.ObserveDuration()
+
 	tasks, err := s.taskService.GetTasksForNotification(ctx)
 	if err != nil {
+		metrics.ErrorsTotal.WithLabelValues("get_notification_tasks_error").Inc()
 		s.logger.Error("failed to get notification tasks", zap.Error(err))
 		return err
 	}
 
+	successCount := 0
 	for _, task := range tasks {
 		if err := s.sendTaskNotification(task); err != nil {
+			metrics.ErrorsTotal.WithLabelValues("send_notification_error").Inc()
 			s.logger.Error("failed to send notification",
 				zap.Int("task_id", task.ID),
 				zap.Int64("user_id", task.UserID),
 				zap.Error(err))
 			continue
 		}
+		successCount++
 
 		// Очищаем время уведомления, чтобы не отправлять повторно
 		task.NotifyAt = nil
 		if err := s.taskService.taskRepository.Update(ctx, task); err != nil {
+			metrics.ErrorsTotal.WithLabelValues("clear_notification_time_error").Inc()
 			s.logger.Error("failed to clear notification time",
 				zap.Int("task_id", task.ID),
 				zap.Error(err))
@@ -53,7 +64,7 @@ func (s *NotificationService) SendTaskNotifications(ctx context.Context) error {
 	}
 
 	if len(tasks) > 0 {
-		s.logger.Info("notifications sent", zap.Int("count", len(tasks)))
+		s.logger.Info("notifications sent", zap.Int("count", successCount), zap.Int("total", len(tasks)))
 	}
 
 	return nil
@@ -95,9 +106,13 @@ func (s *NotificationService) sendTaskNotification(task *domain.Task) error {
 
 // SendMessage отправляет сообщение пользователю
 func (s *NotificationService) SendMessage(userID int64, text string) error {
+	timer := prometheus.NewTimer(metrics.RequestDuration.WithLabelValues("send_message", "POST"))
+	defer timer.ObserveDuration()
+
 	msg := tgbotapi.NewMessage(userID, text)
 	_, err := s.bot.Send(msg)
 	if err != nil {
+		metrics.ErrorsTotal.WithLabelValues("send_message_error").Inc()
 		s.logger.Error("failed to send message",
 			zap.Int64("user_id", userID),
 			zap.Error(err))
