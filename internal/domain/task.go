@@ -13,6 +13,11 @@ const (
 	TaskStatusDeleted   TaskStatus = "deleted"
 )
 
+// String возвращает строковое представление статуса задачи
+func (s TaskStatus) String() string {
+	return string(s)
+}
+
 // TaskPriority представляет приоритет задачи
 type TaskPriority string
 

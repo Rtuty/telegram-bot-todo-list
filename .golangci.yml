@@ -1,7 +1,7 @@
 linters:
   enable:
     - gofmt
-    - golint
+    - revive
     - govet
     - errcheck
     - staticcheck
@@ -14,7 +14,6 @@ linters:
     - gocyclo
     - dupl
     - goimports
-    - revive
     - stylecheck
     - gocritic
     - prealloc
@@ -24,51 +23,23 @@ linters:
     - gochecknoinits
     - gochecknoglobals
     - gocognit
-    - gomnd
-    - gosec
-    - interfacer
-    - lll
-    - maligned
-    - scopelint
-    - unparam
-    - varcheck
-    - deadcode
-    - structcheck
-    - varcheck
-    - bodyclose
+    - mnd
+    - err113
     - containedctx
     - contextcheck
     - dogsled
-    - dupl
     - errname
     - errorlint
     - exhaustive
-    - exportloopref
     - forbidigo
     - forcetypeassert
     - funlen
-    - gochecknoglobals
-    - gochecknoinits
-    - gocognit
-    - goconst
-    - gocyclo
     - godot
     - godox
-    - goerr113
     - goheader
-    - goimports
-    - gomnd
     - goprintffuncname
-    - gosec
-    - gosimple
-    - govet
-    - ifshort
     - importas
-    - ineffassign
-    - interfacer
-    - lll
     - makezero
-    - misspell
     - nakedret
     - nestif
     - nilerr
@@ -76,33 +47,23 @@ linters:
     - noctx
     - nolintlint
     - paralleltest
-    - prealloc
     - predeclared
     - promlinter
-    - revive
     - rowserrcheck
     - sqlclosecheck
-    - staticcheck
-    - structcheck
-    - stylecheck
     - tagliatelle
-    - tenv
     - testpackage
     - thelper
     - tparallel
-    - typecheck
     - unconvert
     - unparam
-    - unused
-    - varcheck
     - wastedassign
-    - whitespace
     - wrapcheck
-    - wsl
 
 linters-settings:
   govet:
-    check-shadowing: true
+    enable:
+      - fieldalignment
   gocyclo:
     min-complexity: 15
   dupl:
@@ -145,14 +106,15 @@ linters-settings:
 
 run:
   deadline: 5m
-  skip-dirs:
-    - vendor
-    - third_party
-    - testdata
-  skip-files:
-    - ".*_test.go$"
-    - ".*_mock.go$"
-    - ".*_generated.go$"
+  issues:
+    exclude-dirs:
+      - vendor
+      - third_party
+      - testdata
+    exclude-files:
+      - ".*_test.go$"
+      - ".*_mock.go$"
+      - ".*_generated.go$"
 
 issues:
   exclude-rules:
@@ -161,13 +123,10 @@ issues:
         - gosec
         - dupl
         - gocyclo
-        - gomnd
-        - interfacer
+        - mnd
         - lll
-        - maligned
         - scopelint
         - unparam
-        - varcheck
         - gochecknoinits
         - gochecknoglobals
         - gocognit
@@ -175,18 +134,15 @@ issues:
         - gocyclo
         - godot
         - godox
-        - goerr113
+        - err113
         - goheader
         - goimports
-        - gomnd
         - goprintffuncname
         - gosec
         - gosimple
         - govet
-        - ifshort
         - importas
         - ineffassign
-        - interfacer
         - lll
         - makezero
         - misspell
@@ -204,28 +160,25 @@ issues:
         - rowserrcheck
         - sqlclosecheck
         - staticcheck
-        - structcheck
         - stylecheck
         - tagliatelle
-        - tenv
         - testpackage
         - thelper
         - tparallel
-        - typecheck
         - unconvert
         - unparam
         - unused
-        - varcheck
         - wastedassign
         - whitespace
         - wrapcheck
         - wsl
+  uniq-by-line: false
 
 output:
-  format: colored-line-number
+  formats:
+    - format: colored-line-number
   print-issued-lines: true
   print-linter-name: true
-  uniq-by-line: false
 
 severity:
   default-severity: error
